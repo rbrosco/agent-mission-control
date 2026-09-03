@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-cream: #F2EEE7;
+  --color-creamdark: #EFEBE4;
+  --color-card: #F8F5EF;
+  --color-cardd: #211B17;
+  --color-ink: #1A1512;
+  --color-inkdeep: #16120F;
+  --color-accent: #E8622C;
+  --color-accent-light: #EA6A35;
+  --color-accent-dim: #F0A27E;
+  --color-agent-orchestrator: #E8622C;
+  --color-agent-scout: #1FA6A0;
+  --color-agent-scribe: #D9A62E;
+  --color-agent-reach: #D6407E;
+  --color-agent-dev: #3FA85C;
+
+  --font-family-serif: Fraunces, Georgia, serif;
+  --font-family-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body {
+  background: #F2EEE7;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html.dark,
+html.dark body {
+  background: #16120F;
+  color: #F2EEE7;
+}
+
+.font-serif {
+  font-family: Fraunces, Georgia, serif;
+}
+
+.hero-glow {
+  background:
+    radial-gradient(ellipse 60% 80% at 85% 10%, rgba(232, 98, 44, 0.35), transparent 60%),
+    radial-gradient(ellipse 40% 60% at 100% 100%, rgba(232, 98, 44, 0.12), transparent 70%),
+    linear-gradient(135deg, #1A1512 0%, #16120F 100%);
+}
+
+.nav-pill {
+  transition: all 0.15s ease;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.15);
+  }
+}
+.pulse-dot {
+  animation: pulse-soft 2.2s ease-in-out infinite;
+}
+
+.msg-bubble-user {
+  background: #1a1512;
+  color: #f2eee7;
+}
+.msg-bubble-agent {
+  background: #ffffff;
+  color: #1a1512;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+html.dark .msg-bubble-agent {
+  background: #2a2320;
+  color: #f2eee7;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.chat-scroll {
+  scrollbar-width: thin;
+}
+
+.loading-shimmer {
+  background: linear-gradient(90deg, rgba(232, 98, 44, 0.08) 25%, rgba(232, 98, 44, 0.18) 37%, rgba(232, 98, 44, 0.08) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}

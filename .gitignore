@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+next-dashboard/node_modules/
+
+# Next.js build output
+.next/
+next-dashboard/.next/
+next-dashboard/out/
+next-dashboard/tsconfig.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Backups (timestamped snapshots from the backup protocol — kept locally, not versioned)
+*.bak-*
+*.bak.*
+
+# Env / secrets
+.env
+.env.local
+*.env
+
+# OS / editor cruft
+.DS_Store
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+
+# Runtime data read from ~/.hermes — never part of this repo
+kanban.db
+state.db
+*.db-shm
+*.db-wal

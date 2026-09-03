@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hermes Mission Control</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-mono antialiased min-h-screen">
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <header class="flex justify-between items-center border-b border-slate-800 pb-6 mb-8">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight text-emerald-400">HERMES // MISSION CONTROL</h1>
+                <p class="text-xs text-slate-400 mt-1">System status, active fleets, and agent activity logs</p>
+            </div>
+            <div class="flex items-center space-x-3 text-xs">
+                <span class="inline-flex items-center px-2.5 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
+                    <span class="w-2 h-2 mr-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                    Multiplex Active
+                </span>
+                <span class="text-slate-400">Port: 51763</span>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-slate-900 border border-slate-800 rounded-lg p-4">
+                <div class="text-slate-400 text-xs uppercase tracking-wider">Orchestrator</div>
+                <div class="text-lg font-semibold text-white mt-1">Active (Telegram)</div>
+                <div class="text-xs text-emerald-400 mt-2">Core Coordinator</div>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-lg p-4">
+                <div class="text-slate-400 text-xs uppercase tracking-wider">Specialist Fleet</div>
+                <div class="text-lg font-semibold text-white mt-1">4 Profiles</div>
+                <div class="text-xs text-slate-400 mt-2">Scout, Scribe, Reach, Dev</div>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-lg p-4">
+                <div class="text-slate-400 text-xs uppercase tracking-wider">Database</div>
+                <div class="text-lg font-semibold text-white mt-1">SQLite Read-Only</div>
+                <div class="text-xs text-slate-400 mt-2">~/agent-mission-control/</div>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-lg p-4">
+                <div class="text-slate-400 text-xs uppercase tracking-wider">Log Retention</div>
+                <div class="text-lg font-semibold text-white mt-1">7 Days / Weekly Cron</div>
+                <div class="text-xs text-slate-400 mt-2">Auto-Vacuum Enabled</div>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300">Agent Activity Logs</h2>
+                <span class="text-xs text-slate-500">Live Read-Only View</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-slate-950 text-slate-400 uppercase tracking-wider border-b border-slate-800">
+                        <tr>
+                            <th class="px-6 py-3">Timestamp (UTC)</th>
+                            <th class="px-6 py-3">Agent</th>
+                            <th class="px-6 py-3">Task Description</th>
+                            <th class="px-6 py-3">Model</th>
+                            <th class="px-6 py-3">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800 text-slate-300">
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-slate-500">2026-06-06 14:22:10</td>
+                            <td class="px-6 py-4 whitespace-nowrap font-semibold text-emerald-400">dev</td>
+                            <td class="px-6 py-4">Built local read-write logging database and verification scripts</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-slate-400">Qwen 2.5 Coder 14B</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-0.5 text-xs rounded bg-emerald-950 text-emerald-400 border border-emerald-800">completed</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-slate-500">2026-06-06 14:20:01</td>
+                            <td class="px-6 py-4 whitespace-nowrap font-semibold text-blue-400">scout</td>
+                            <td class="px-6 py-4">Gathered framework research and documentation references</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-slate-400">Gemma 4 12B</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-0.5 text-xs rounded bg-emerald-950 text-emerald-400 border border-emerald-800">completed</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
