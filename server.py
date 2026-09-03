@@ -43,8 +43,12 @@ GLOBAL_KANBAN_DB = GLOBAL_HERMES_HOME / "kanban.db"
 GLOBAL_CRON_DIR = GLOBAL_HERMES_HOME / "cron"
 GATEWAY_STATE_JSON = GLOBAL_HERMES_HOME / "gateway_state.json"
 
-BIND_HOST = "127.0.0.1"
+BIND_HOST = "0.0.0.0"
 BIND_PORT = int(os.environ.get("MC_PORT", "51763"))
+
+# Basic auth credentials (set via env vars, with fallback)
+AUTH_USER = os.environ.get("MC_USER", "admin")
+AUTH_PASS = os.environ.get("MC_PASS", "change-me")
 
 STATIC_DIR = Path(__file__).resolve().parent
 INDEX_HTML = STATIC_DIR / "index.html"
@@ -766,6 +770,37 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):  # quieter default logging
         pass
 
+    def _check_auth(self) -> bool:
+        """Check HTTP Basic Auth. Returns True if authorized, False otherwise (and sends 401)."""
+        import base64
+        auth_header = self.headers.get("Authorization", "")
+        if not auth_header.startswith("Basic "):
+            self.send_response(401)
+            self.send_header("WWW-Authenticate", 'Basic realm="Agent Mission Control"')
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b"<h1>401 Unauthorized</h1><p>Authentication required.</p>")
+            return False
+        
+        try:
+            encoded = auth_header.split(" ")[1]
+            decoded = base64.b64decode(encoded).decode("utf-8")
+            username, password = decoded.split(":", 1)
+        except Exception:
+            self.send_response(401)
+            self.send_header("WWW-Authenticate", 'Basic realm="Agent Mission Control"')
+            self.end_headers()
+            return False
+        
+        if username != AUTH_USER or password != AUTH_PASS:
+            self.send_response(401)
+            self.send_header("WWW-Authenticate", 'Basic realm="Agent Mission Control"')
+            self.end_headers()
+            self.wfile.write(b"<h1>401 Unauthorized</h1><p>Invalid credentials.</p>")
+            return False
+        
+        return True
+
     def _cors_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
@@ -817,6 +852,8 @@ class Handler(BaseHTTPRequestHandler):
             return False
 
     def do_GET(self) -> None:  # noqa: N802 (stdlib naming)
+        if not self._check_auth():
+            return
         parsed = urlparse(self.path)
         path = parsed.path
         qs = parse_qs(parsed.query)
@@ -874,6 +911,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({"error": f"sqlite error: {exc}"}, status=500)
 
     def do_POST(self) -> None:  # noqa: N802 (stdlib naming)
+        if not self._check_auth():
+            return
         parsed = urlparse(self.path)
         path = parsed.path
 
