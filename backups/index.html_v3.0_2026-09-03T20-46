@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-version="v3.0">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hermes Mission Control</title>
+  
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Custom Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Three.js for 3D Background -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream: '#F2EEE7',
+            creamdark: '#EFEBE4',
+            card: '#F8F5EF',
+            ink: '#1A1512',
+            inkdeep: '#16120F',
+            accent: {
+              DEFAULT: '#E8622C',
+              light: '#EA6A35',
+              dim: '#F0A27E',
+            },
+            agent: {
+              orchestrator: '#E8622C',
+              scout: '#1FA6A0',
+              scribe: '#D9A62E',
+              reach: '#D6407E',
+              dev: '#3FA85C',
+            },
+            surface: {
+              50: '#FAFAFA',
+              100: '#F5F5F3',
+              200: '#E8E3DB',
+              800: '#1A1714',
+              900: '#14110F',
+              950: '#110E0D',
+            },
+          },
+          fontFamily: {
+            serif: ['Fraunces', 'Georgia', 'serif'],
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          animation: {
+            'pulse-soft': 'pulseSoft 2.2s ease-in-out infinite',
+            'shimmer': 'shimmer 1.4s ease-in-out infinite',
+            'float': 'float 6s ease-in-out infinite',
+            'glow': 'glow 2s ease-in-out infinite alternate',
+          },
+          keyframes: {
+            pulseSoft: {
+              '0%,100%': { opacity: '1', transform: 'scale(1)' },
+              '50%': { opacity: '0.6', transform: 'scale(1.15)' },
+            },
+            shimmer: {
+              '0%': { 'background-position': '100% 50%' },
+              '100%': { 'background-position': '0 50%' },
+            },
+            float: {
+              '0%': { transform: 'translateY(0px)' },
+              '50%': { transform: 'translateY(-10px)' },
+              '100%': { transform: 'translateY(0px)' },
+            },
+            glow: {
+              from: { 'box-shadow': '0 0 20px rgba(232, 98, 42, 0.4)' },
+              to: { 'box-shadow': '0 0 40px rgba(232, 98, 42, 0.8)' },
+            },
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    * { scroll-behavior: smooth; }
+    html, body { 
+      background: linear-gradient(165deg, #1A1512 0%, #16120F 100%); 
+      font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; 
+      color: #E8E0D5;
+      overflow-x: hidden;
+    }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    
+    /* Glass morphism surfaces */
+    .glass {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(232, 98, 42, 0.1);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .glass-card {
+      background: rgba(248, 245, 239, 0.05);
+      border: 1px solid rgba(232, 150, 42, 0.08);
+      backdrop-filter: blur(20px);
+    }
+    
+    /* Tab system */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    
+    /* Scrollbar custom */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { 
+      background: rgba(232, 98, 42, 0.3); 
+      border-radius: 8px; 
+      transition: background 0.2s;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(232, 98, 42, 0.5); }
+    ::-webkit-scrollbar-track { background: transparent; }
+    
+    /* Agent status indicators */
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+    .status-online { background: #3FA85C; box-shadow: 0 0 8px #3FA85C; }
+    .status-offline { background: #D6407E; box-shadow: 0 0 8px #D6407E; }
+    .status-idle { background: #D9A62E; box-shadow: 0 0 8px #D9A62E; }
+    
+    /* Terminal-style elements */
+    .terminal-line {
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .mono-digit { font-variant-numeric: tabular-nums; }
+    
+    /* Chat bubbles */
+    .msg-bubble-user { 
+      background: linear-gradient(135deg, #E8622C 0%, #1FA6A0 100%);
+      color: #1A1512;
+      border-radius: 18px 6px 18px 18px;
+    }
+    .msg-bubble-agent { 
+      background: rgba(248, 245, 239, 0.08);
+      color: #E8E0D5;
+      border: 1px solid rgba(232, 98, 42, 0.1);
+      border-radius: 18px 18px 6px 18px;
+    }
+  </style>
+</head>
+
+<body class="bg-cream text-ink antialiased min-h-screen overflow-hidden">
+
+<!-- ====================== LOGIN OVERLAY ====================== -->
+<div id="login-overlay" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+  <div class="glass-card p-8 rounded-2xl w-full max-w-md shadow-2xl">
+    <div class="text-center mb-6">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-accent to-accent-dim mb-4">
+        <span class="text-2xl font-bold text-white">H</span>
+      </div>
+      <h1 class="text-2xl font-serif font-semibold text-white">Mission Control</h1>
+      <p class="text-sm text-slate-400 mt-1">Digite suas credenciais para continuar</p>
+    </div>
+    
+    <form id="login-form" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-1">Usuário</label>
+        <input type="text" id="login-user" required
+               class="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white transition-colors">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-1">Senha</label>
+        <input type="password" id="login-pass" required
+               class="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white transition-colors">
+      </div>
+      
+      <div id="login-error" class="hidden text-red-400 text-sm text-center py-2">
+        Credenciais inválidas
+      </div>
+      
+      <button type="submit" 
+              class="w-full py-3 px-4 bg-gradient-to-r from-accent to-accent-light text-white font-semibold rounded-lg transition-all duration-200 hover:brightness-110">
+        Acessar
+      </button>
+    </form>
+    
+    <div class="mt-4 text-center">
+      <small class="text-xs text-slate-500">Versão <span class="font-mono" data-version-display>v3.0</span></small>
+    </div>
+  </div>
+</div>
+
+<!-- ====================== NAVBAR ====================== -->
+<div id="main-app" class="hidden">
+<div class="sticky top-0 z-50 bg-cream/90 backdrop-blur border-b border-black/5">
+  <div class="max-w-[1500px] mx-auto px-6 py-3 flex items-center gap-6">
+    <!-- Logo -->
+    <div class="flex items-center gap-2 shrink-0">
+      <span class="w-2.5 h-2.5 rounded-full bg-accent inline-block animate-glow"></span>
+      <span class="font-serif text-lg font-semibold tracking-tight text-ink">Hermes</span>
+      <span class="text-[10px] uppercase tracking-wider bg-black/5 text-black/50 px-1.5 py-0.5 rounded-full font-mono" title="Versão do painel">v3.0</span>
+    </div>
+
+    <!-- Tabs -->
+    <nav id="main-nav" class="flex-1 flex items-center justify-center gap-1 flex-wrap">
+      <button data-tab="overview" class="nav-pill px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider transition-all duration-200 hover:bg-accent hover:text-white">Overview</button>
+      <button data-tab="agents" class="nav-pill px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider transition-all duration-200 hover:bg-scout hover:text-white">Agents</button>
+      <button data-tab="chat" class="nav-pill px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider transition-all duration-200 hover:bg-scribe hover:text-white">Chat</button>
+      <button data-tab="tasks" class="nav-pill px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider transition-all duration-200 hover:bg-reach hover:text-white">Tasks</button>
+      <button data-tab="office" class="nav-pill px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider transition-all duration-200 hover:bg-dev hover:text-white">Office</button>
+      <button data-tab="content" class="nav-pill px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider transition-all duration-200 hover:bg-accent-dim hover:text-white">Content</button>
+      <button data-tab="schedule" class="nav-pill px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider transition-all duration-200 hover:bg-indigo-500 hover:text-white">Schedule</button>
+      <button data-tab="docs" class="nav-pill px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider transition-all duration-200 hover:bg-slate-600 hover:text-white">Docs</button>
+    </nav>
+
+    <!-- Right side -->
+    <div class="flex items-center gap-3 shrink-0">
+      <div class="hidden md:flex items-center gap-2 bg-black/5 rounded-full px-3 py-1.5 text-xs text-black/40 w-56">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <span class="truncate">Buscar agentes, missões, logs...</span>
+        <span class="ml-auto text-[10px] font-mono bg-white rounded px-1 py-0.5 border border-black/10">⌘K</span>
+      </div>
+      <button class="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center text-black/50 hover:bg-black/10">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      </button>
+      <div id="utc-clock" class="text-xs font-mono text-black/50 mono-digit w-20 text-right">--:--:--</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================== MAIN ====================== -->
+<main class="max-w-[1500px] mx-auto px-6 py-8">
+
+  <!-- ===== OVERVIEW TAB ===== -->
+  <section id="tab-overview" class="tab-panel">
+    <div id="overview-mount"></div>
+  </section>
+
+  <!-- ===== AGENTS TAB ===== -->
+  <section id="tab-agents" class="tab-panel">
+    <div id="agents-mount"></div>
+  </section>
+
+  <!-- ===== CHAT TAB ===== -->
+  <section id="tab-chat" class="tab-panel">
+    <div id="chat-mount"></div>
+  </section>
+
+  <!-- ===== TASKS TAB ===== -->
+  <section id="tab-tasks" class="tab-panel">
+    <div id="tasks-mount"></div>
+  </section>
+
+  <!-- ===== OFFICE TAB ===== -->
+  <section id="tab-office" class="tab-panel">
+    <div id="office-mount"></div>
+  </section>
+
+  <!-- ===== CONTENT TAB ===== -->
+  <section id="tab-content" class="tab-panel">
+    <div id="content-mount"></div>
+  </section>
+
+  <!-- ===== SCHEDULE TAB ===== -->
+  <section id="tab-schedule" class="tab-panel">
+    <div id="schedule-mount"></div>
+  </section>
+
+  <!-- ===== DOCS TAB ===== -->
+  <section id="tab-docs" class="tab-panel">
+    <div id="docs-mount"></div>
+  </section>
+
+</main>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script>
+// ===== LOGIN HANDLER =====
+(function() {
+  const loginForm = document.getElementById('login-form');
+  const loginOverlay = document.getElementById('login-overlay');
+  const mainApp = document.getElementById('main-app');
+  const loginError = document.getElementById('login-error');
+
+  // Se já autenticado no session storage
+  if (sessionStorage.getItem('mc-authenticated') === 'true') {
+    loginOverlay.classList.add('hidden');
+    mainApp.classList.remove('hidden');
+  }
+
+  loginForm?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const user = document.getElementById('login-user').value;
+    const pass = document.getElementById('login-pass').value;
+
+    // Simple client-side validation (server also enforces)
+    if (user && pass) {
+      // Em produção, validar contra backend /api/login
+      sessionStorage.setItem('mc-user', user);
+      sessionStorage.setItem('mc-authenticated', 'true');
+      loginOverlay.classList.add('hidden');
+      mainApp.classList.remove('hidden');
+    } else {
+      loginError.classList.remove('hidden');
+    }
+  });
+})();
+
+// ===== CLOCK =====
+(function() {
+  const clock = document.getElementById('utc-clock');
+  function updateClock() {
+    if (!clock) return;
+    const now = new Date();
+    clock.textContent = now.toLocaleTimeString('en-GB', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+})();
+
+// ===== TAB SWITCHING =====
+(function() {
+  const tabs = document.querySelectorAll('[data-tab]');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', function() {
+      const tabName = this.getAttribute('data-tab');
+      
+      // Desativar todos os painéis
+      document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.remove('active');
+      });
+      
+      // Ativar o painel clicado
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+      
+      // Atualizar estilos das tabs
+      tabs.forEach(t => t.classList.remove('bg-accent', 'text-white'));
+      this.classList.add('bg-accent', 'text-white');
+      
+      // Trigger do conteúdo da aba (app.js vai lidar com isso)
+      window.dispatchEvent(new CustomEvent('mc-tab-change', { detail: { tab: tabName } }));
+    });
+  });
+  
+  // Ativar tab padrão
+  const defaultTab = tabs[0];
+  if (defaultTab) {
+    defaultTab.click();
+  }
+})();
+</script>
+
+<script src="/app.js" type="module"></script>
+</body>
+</html>

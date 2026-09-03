@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-version="v2.0">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes Mission Control</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          cream: '#F2EEE7',
+          creamdark: '#EFEBE4',
+          card: '#F8F5EF',
+          ink: '#1A1512',
+          inkdeep: '#16120F',
+          accent: {
+            DEFAULT: '#E8622C',
+            light: '#EA6A35',
+            dim: '#F0A27E',
+          },
+          agent: {
+            orchestrator: '#E8622C',
+            scout: '#1FA6A0',
+            scribe: '#D9A62E',
+            reach: '#D6407E',
+            dev: '#3FA85C',
+          },
+        },
+        fontFamily: {
+          serif: ['Fraunces', 'Georgia', 'serif'],
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  html, body { background: #F2EEE7; }
+  body { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+  .font-serif { font-family: 'Fraunces', Georgia, serif; }
+  .hero-glow {
+    background:
+      radial-gradient(ellipse 60% 80% at 85% 10%, rgba(232, 98, 44, 0.35), transparent 60%),
+      radial-gradient(ellipse 40% 60% at 100% 100%, rgba(232, 98, 44, 0.12), transparent 70%),
+      linear-gradient(135deg, #1A1512 0%, #16120F 100%);
+  }
+  .nav-pill { transition: all 0.15s ease; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  @keyframes pulse-soft { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.15); } }
+  .pulse-dot { animation: pulse-soft 2.2s ease-in-out infinite; }
+  .msg-bubble-user { background: #1A1512; color: #F2EEE7; }
+  .msg-bubble-agent { background: #FFFFFF; color: #1A1512; border: 1px solid rgba(0,0,0,0.08); }
+  .chat-scroll { scrollbar-width: thin; }
+  .loading-shimmer {
+    background: linear-gradient(90deg, rgba(232,98,44,0.08) 25%, rgba(232,98,44,0.18) 37%, rgba(232,98,44,0.08) 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease infinite;
+  }
+  @keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+</style>
+</head>
+<body class="bg-cream text-ink antialiased min-h-screen">
+
+<!-- ============================== NAVBAR ============================== -->
+<div class="sticky top-0 z-50 bg-cream/90 backdrop-blur border-b border-black/5">
+  <div class="max-w-[1500px] mx-auto px-6 py-3 flex items-center gap-6">
+    <!-- Logo -->
+    <div class="flex items-center gap-2 shrink-0">
+      <span class="w-2.5 h-2.5 rounded-full bg-accent inline-block"></span>
+      <span class="font-serif text-lg font-semibold tracking-tight">Hermes</span>
+      <span class="text-[10px] uppercase tracking-wider bg-black/5 text-black/50 px-1.5 py-0.5 rounded-full font-sans" title="Versão do painel">v2.0</span>
+    </div>
+
+    <!-- Tabs -->
+    <nav id="main-nav" class="flex-1 flex items-center justify-center gap-1 flex-wrap">
+      <button data-tab="overview" class="nav-pill px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider">Overview</button>
+      <button data-tab="agents" class="nav-pill px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider">Agents</button>
+      <button data-tab="chat" class="nav-pill px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider">Chat</button>
+      <button data-tab="tasks" class="nav-pill px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider">Tasks</button>
+      <button data-tab="office" class="nav-pill px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider">Office</button>
+      <button data-tab="content" class="nav-pill px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider">Content</button>
+      <button data-tab="schedule" class="nav-pill px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider">Schedule</button>
+      <button data-tab="docs" class="nav-pill px-4 py-2 rounded-full text-[11px] font-semibold uppercase tracking-wider">Docs</button>
+    </nav>
+
+    <!-- Right side -->
+    <div class="flex items-center gap-3 shrink-0">
+      <div class="hidden md:flex items-center gap-2 bg-black/5 rounded-full px-3 py-1.5 text-xs text-black/40 w-56">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <span class="truncate">Search agents, missions, logs...</span>
+        <span class="ml-auto text-[10px] font-mono bg-white rounded px-1 py-0.5 border border-black/10">⌘K</span>
+      </div>
+      <button class="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center text-black/50 hover:bg-black/10">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      </button>
+      <div id="utc-clock" class="text-xs font-mono text-black/50 tabular-nums w-20 text-right">--:--:--</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================== MAIN ============================== -->
+<main class="max-w-[1500px] mx-auto px-6 py-8">
+
+  <!-- ===== OVERVIEW TAB ===== -->
+  <section id="tab-overview" class="tab-panel">
+    <div id="overview-mount"></div>
+  </section>
+
+  <!-- ===== AGENTS TAB ===== -->
+  <section id="tab-agents" class="tab-panel">
+    <div id="agents-mount"></div>
+  </section>
+
+  <!-- ===== CHAT TAB ===== -->
+  <section id="tab-chat" class="tab-panel">
+    <div id="chat-mount"></div>
+  </section>
+
+  <!-- ===== TASKS TAB ===== -->
+  <section id="tab-tasks" class="tab-panel">
+    <div id="tasks-mount"></div>
+  </section>
+
+  <!-- ===== OFFICE TAB ===== -->
+  <section id="tab-office" class="tab-panel">
+    <div id="office-mount"></div>
+  </section>
+
+  <!-- ===== CONTENT TAB ===== -->
+  <section id="tab-content" class="tab-panel">
+    <div id="content-mount"></div>
+  </section>
+
+  <!-- ===== SCHEDULE TAB ===== -->
+  <section id="tab-schedule" class="tab-panel">
+    <div id="schedule-mount"></div>
+  </section>
+
+  <!-- ===== DOCS TAB ===== -->
+  <section id="tab-docs" class="tab-panel">
+    <div id="docs-mount"></div>
+  </section>
+
+</main>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script src="/app.js" type="module"></script>
+</body>
+</html>

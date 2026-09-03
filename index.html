@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   
-  <!-- Three.js for 3D Background -->
+  <!-- Three.js importmap -->
   <script type="importmap">
   {
     "imports": {
@@ -44,14 +44,6 @@
               scribe: '#D9A62E',
               reach: '#D6407E',
               dev: '#3FA85C',
-            },
-            surface: {
-              50: '#FAFAFA',
-              100: '#F5F5F3',
-              200: '#E8E3DB',
-              800: '#1A1714',
-              900: '#14110F',
-              950: '#110E0D',
             },
           },
           fontFamily: {
@@ -156,6 +148,83 @@
       color: #E8E0D5;
       border: 1px solid rgba(232, 98, 42, 0.1);
       border-radius: 18px 18px 6px 18px;
+    }
+    
+    /* 3D Building Scene */
+    #building-3d-container {
+      position: relative;
+      width: 100%;
+      height: 400px;
+      perspective: 1200px;
+      perspective-origin: center bottom;
+    }
+    
+    #building-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    
+    .building-floor {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      transform-origin: bottom center;
+    }
+    
+    .building-col {
+      flex: 1;
+      height: 100%;
+      background: rgba(26, 21, 18, 0.6);
+      border: 1px solid rgba(58, 64, 80, 0.5);
+      border-radius: 2px;
+      position: relative;
+      transition: all 0.3s ease;
+    }
+    
+    .building-col.active {
+      box-shadow: 0 0 12px var(--agent-color, #E8622C);
+      border-color: var(--agent-color, #E8622C);
+    }
+    
+    .building-col .light {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--agent-color, #E8622C);
+      box-shadow: 0 0 8px var(--agent-color, #E8622C);
+      opacity: 0.3;
+      transition: all 0.3s ease;
+    }
+    
+    .building-col.active .light {
+      opacity: 1;
+      animation: pulse 1.5s infinite;
+    }
+    
+    .building-col.consumo-alto .light {
+      width: 12px;
+      height: 12px;
+    }
+    
+    .building-ticker {
+      position: absolute;
+      bottom: -20px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 11px;
+      color: #647489;
+      font-family: 'JetBrains Mono', monospace;
     }
   </style>
 </head>
@@ -285,6 +354,7 @@
 </main>
 </div>
 
+<!-- Three.js e importmap -->
 <script type="importmap">
 {
   "imports": {
@@ -302,7 +372,6 @@
   const mainApp = document.getElementById('main-app');
   const loginError = document.getElementById('login-error');
 
-  // Se já autenticado no session storage
   if (sessionStorage.getItem('mc-authenticated') === 'true') {
     loginOverlay.classList.add('hidden');
     mainApp.classList.remove('hidden');
@@ -313,9 +382,7 @@
     const user = document.getElementById('login-user').value;
     const pass = document.getElementById('login-pass').value;
 
-    // Simple client-side validation (server also enforces)
     if (user && pass) {
-      // Em produção, validar contra backend /api/login
       sessionStorage.setItem('mc-user', user);
       sessionStorage.setItem('mc-authenticated', 'true');
       loginOverlay.classList.add('hidden');
@@ -328,51 +395,428 @@
 
 // ===== CLOCK =====
 (function() {
-  const clock = document.getElementById('utc-clock');
+  const clockEl = document.getElementById('utc-clock');
   function updateClock() {
-    if (!clock) return;
+    if (!clockEl) return;
     const now = new Date();
-    clock.textContent = now.toLocaleTimeString('en-GB', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
+    clockEl.textContent = now.toLocaleTimeString('pt-BR', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
     });
   }
-  updateClock();
   setInterval(updateClock, 1000);
+  updateClock();
 })();
 
-// ===== TAB SWITCHING =====
-(function() {
-  const tabs = document.querySelectorAll('[data-tab]');
-  tabs.forEach(tab => {
-    tab.addEventListener('click', function() {
-      const tabName = this.getAttribute('data-tab');
-      
-      // Desativar todos os painéis
-      document.querySelectorAll('.tab-panel').forEach(panel => {
-        panel.classList.remove('active');
-      });
-      
-      // Ativar o painel clicado
-      document.getElementById(`tab-${tabName}`).classList.add('active');
-      
-      // Atualizar estilos das tabs
-      tabs.forEach(t => t.classList.remove('bg-accent', 'text-white'));
-      this.classList.add('bg-accent', 'text-white');
-      
-      // Trigger do conteúdo da aba (app.js vai lidar com isso)
-      window.dispatchEvent(new CustomEvent('mc-tab-change', { detail: { tab: tabName } }));
+// ===== 3D BUILDING VISUALIZATION (Three.js Premium) =====
+const BUILDING_CONFIG = {
+  agents: {
+    scout:  { color: '#1FA6A0', name: 'SCOUT', position: [-3, 0, 0] },
+    scribe: { color: '#D9A62E', name: 'SCRIBE', position: [0, 0, 0] },
+    reach:  { color: '#D6407E', name: 'REACH',  position: [3, 0, 0] },
+    dev:    { color: '#3FA85C', name: 'DEV',    position: [1.5, 2, -1] },
+  },
+  floors: 4,
+  colsPerFloor: 6
+};
+
+let buildingScene = null;
+let buildingAnimations = [];
+
+async function initBuilding3D(containerId, profileUsage) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'mb-6';
+  header.innerHTML = `
+    <h2 class="text-xl font-serif font-bold text-white mb-2">Data Center Neural Network</h2>
+    <p class="text-sm text-slate-400/70">Real-time agent activity and inter-agent communication flow</p>
+  `;
+  container.appendChild(header);
+
+  // Legend
+  const legend = document.createElement('div');
+  legend.className = 'flex gap-4 mb-4 flex-wrap';
+  Object.values(BUILDING_CONFIG.agents).forEach(agent => {
+    legend.innerHTML += `
+      <div class="flex items-center gap-1.5 text-xs">
+        <div class="w-3 h-3 rounded-full animate-pulse" style="background:${agent.color}; box-shadow: 0 0 6px ${agent.color}"></div>
+        <span class="text-slate-300">${agent.name}</span>
+      </div>
+    `;
+  });
+  container.appendChild(legend);
+
+  // 3D Canvas container
+  const canvasWrapper = document.createElement('div');
+  canvasWrapper.id = 'building-3d-container';
+  canvasWrapper.className = 'relative w-full h-64';
+  container.appendChild(canvasWrapper);
+
+  // Initialize Three.js scene
+  if (typeof THREE === 'undefined') {
+    console.warn('Three.js not loaded, falling back to 2D');
+    createBuilding2DFallback(canvasWrapper, profileUsage);
+    return;
+  }
+
+  createBuilding3D(canvasWrapper, profileUsage);
+}
+
+function createBuilding3D(container, profileUsage) {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a0d12);
+  
+  // Camera
+  const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+  camera.position.set(0, 8, 15);
+  
+  // Renderer
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.setPixelRatio(window.devicePixelRatio * 0.8);
+  container.appendChild(renderer.domElement);
+  
+  // Lighting
+  const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+  scene.add(ambientLight);
+  
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.4);
+  directionalLight.position.set(5, 10, 7);
+  scene.add(directionalLight);
+  
+  // Floor grid
+  const gridHelper = new THREE.GridHelper(20, 20, 0x2a2a2a, 0x1a1a1a);
+  gridHelper.position.y = -0.01;
+  scene.add(gridHelper);
+  
+  // Fog for depth
+  scene.fog = new THREE.FogExp2(0x0a0d12, 0.08);
+  
+  // Agent towers
+  const towerGroup = new THREE.Group();
+  const towers = {};
+  
+  Object.entries(BUILDING_CONFIG.agents).forEach(([key, agent]) => {
+    // Tower base
+    const geometry = new THREE.BoxGeometry(0.8, 4, 0.8);
+    const material = new THREE.MeshPhongMaterial({
+      color: agent.color,
+      transparent: true,
+      opacity: 0.7,
+      emissive: agent.color,
+      emissiveIntensity: 0.1
     });
+    
+    const tower = new THREE.Mesh(geometry, material);
+    tower.position.set(agent.position[0], 2, agent.position[2]);
+    tower.userData = { key, agent, consumption: 0, active: false };
+    tower.name = `tower-${key}`;
+    
+    // Tower edge highlight
+    const edges = new THREE.EdgesGeometry(geometry);
+    const edgeMaterial = new THREE.LineBasicMaterial({ 
+      color: agent.color,
+      transparent: true,
+      opacity: 0.5
+    });
+    const edgeLines = new THREE.LineSegments(edges, edgeMaterial);
+    tower.add(edgeLines);
+    
+    // Consumption light at top
+    const lightGeometry = new THREE.SphereGeometry(0.2, 16, 16);
+    const lightMaterial = new THREE.MeshBasicMaterial({ color: agent.color });
+    const lightMesh = new THREE.Mesh(lightGeometry, lightMaterial);
+    lightMesh.position.y = 2.5;
+    lightMesh.visible = false;
+    tower.add(lightMesh);
+    
+    // Tower label
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.font = '12px monospace';
+    ctx.fillStyle = agent.color;
+    ctx.fillText(agent.name, 4, 12);
+    const texture = new THREE.CanvasTexture(canvas);
+    const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    const sprite = new THREE.Sprite(spriteMaterial);
+    sprite.position.set(0, -3.5, 0);
+    sprite.scale.set(2, 0.5, 1);
+    tower.add(sprite);
+    
+    scene.add(tower);
+    towerGroup.add(tower);
+    towers[key] = tower;
   });
   
-  // Ativar tab padrão
-  const defaultTab = tabs[0];
-  if (defaultTab) {
-    defaultTab.click();
+  scene.add(towerGroup);
+  
+  // Communication links between agents
+  const linkMaterial = new THREE.LineBasicMaterial({ 
+    color: 0xE8622C, 
+    transparent: true, 
+    opacity: 0.2,
+    linewidth: 2
+  });
+  
+  const links = {};
+  const agentKeys = Object.keys(BUILDING_CONFIG.agents);
+  
+  for (let i = 0; i < agentKeys.length; i++) {
+    for (let j = i + 1; j < agentKeys.length; j++) {
+      const a = BUILDING_CONFIG.agents[agentKeys[i]];
+      const b = BUILDING_CONFIG.agents[agentKeys[j]];
+      
+      const geometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(a.position[0], 2, a.position[2]),
+        new THREE.Vector3(b.position[0], 2, b.position[2])
+      ]);
+      
+      const line = new THREE.Line(geometry, linkMaterial);
+      scene.add(line);
+      links[`${agentKeys[i]}-${agentKeys[j]}`] = { line, geometry, material: linkMaterial };
+    }
   }
-})();
+  
+  // Orbit controls
+  let controls;
+  if (typeof THREE.OrbitControls !== 'undefined') {
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.minDistance = 8;
+    controls.maxDistance = 30;
+    controls.maxPolarAngle = Math.PI / 2 + 0.3;
+    controls.minPolarAngle = Math.PI / 4;
+  }
+  
+  // Animation state
+  let animationId;
+  buildingScene = { scene, camera, renderer, controls, towers, links, animationId };
+  
+  // Animation loop
+  function animate() {
+    if (buildingScene) {
+      if (controls) controls.update();
+      
+      // Slow rotation
+      towerGroup.rotation.y += 0.002;
+      
+      renderer.render(scene, camera);
+      animationId = requestAnimationFrame(animate);
+    }
+  }
+  animate();
+  
+  // Resize handler
+  const resizeHandler = () => {
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    renderer.setSize(width, height);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+  };
+  window.addEventListener('resize', resizeHandler);
+  
+  // Store for cleanup
+  buildingScene.resizeHandler = resizeHandler;
+}
+
+function createBuilding2DFallback(container) {
+  // Simplified 2D version when Three.js isn't available
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("viewBox", "0 0 500 280");
+  svg.setAttribute("class", "w-full h-64");
+  svg.innerHTML = `
+    <rect x="0" y="0" width="500" height="280" fill="#0a0d12" rx="12"/>
+    <circle cx="250" cy="140" r="40" fill="#E8622C" opacity="0.3"/>
+    <text x="250" y="145" text-anchor="middle" fill="white" font-size="14" font-weight="bold">OR</text>
+  `;
+  
+  Object.entries(BUILDING_CONFIG.agents).forEach((key, agent, i) => {
+    const x = 120 + i * 90;
+    const y = 200;
+    svg.innerHTML += `
+      <rect x="${x-20}" y="${y-60}" width="40" height="60" rx="4" fill="${agent.color}" opacity="0.3" stroke="${agent.color}"/>
+      <circle cx="${x}" cy="${y-70}" r="6" fill="${agent.color}"/>
+    `;
+  });
+  
+  container.appendChild(svg);
+}
+
+// Function to trigger inter-agent communication visualization
+function triggerAgentCommunication(fromAgent, toAgent) {
+  if (!buildingScene || !buildingScene.scene) return;
+  
+  const linkKey = `${fromAgent}-${toAgent}`;
+  const reverseKey = `${toAgent}-${fromAgent}`;
+  const link = buildingScene.links[linkKey] || buildingScene.links[reverseKey];
+  
+  if (!link) return;
+  
+  // Create a particle effect along the line
+  const particleGeometry = new THREE.SphereGeometry(0.12, 8, 8);
+  const particleMaterial = new THREE.MeshBasicMaterial({
+    color: AGENT_META[fromAgent]?.color || '#E8622C',
+    transparent: true,
+    opacity: 0.8
+  });
+  
+  const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+  const start = new THREE.Vector3();
+  const end = new THREE.Vector3();
+  link.geometry.attributes.position.fromBufferAttribute(start, 0);
+  link.geometry.attributes.position.toVector3At(1, end);
+  
+  particle.position.copy(start);
+  buildingScene.scene.add(particle);
+  
+  // Animate particle from start to end
+  const duration = 1500; // ms
+  const startTime = Date.now();
+  
+  const animateParticle = () => {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    
+    particle.position.lerpVectors(start, end, progress);
+    particle.material.opacity = 0.8 * (1 - progress);
+    
+    if (progress < 1) {
+      requestAnimationFrame(animateParticle);
+    } else {
+      buildingScene.scene.remove(particle);
+    }
+  };
+  
+  animateParticle();
+  
+  // Flash the link
+  link.material.opacity = 0.6;
+  link.material.color.set(AGENT_META[fromAgent]?.color || '#E8622C');
+  setTimeout(() => {
+    link.material.opacity = 0.2;
+    link.material.color.set(0xE8622C);
+  }, 500);
+  
+  // Flash target tower
+  const targetTower = buildingScene.towers[toAgent];
+  if (targetTower) {
+    const light = targetTower.children.find(c => c.isMesh && c.geometry.type === 'SphereGeometry');
+    if (light) {
+      light.visible = true;
+      setTimeout(() => { light.visible = targetTower.userData.active; }, 500);
+    }
+  }
+}
+
+// ===== TAB SYSTEM =====
+const TAB_LOADERS = {};
+const TAB_LOADED = new Set();
+
+function activateTab(tabName) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  const panel = document.getElementById(`tab-${tabName}`);
+  if (panel) panel.classList.add('active');
+
+  document.querySelectorAll('#main-nav button').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tabName);
+  });
+
+  if (!TAB_LOADED.has(tabName) && TAB_LOADERS[tabName]) {
+    TAB_LOADED.add(tabName);
+    TAB_LOADERS[tabName]();
+  }
+}
+
+function initNav() {
+  document.querySelectorAll('#main-nav button').forEach(b => {
+    b.addEventListener('click', () => activateTab(b.dataset.tab));
+  });
+  
+  const hash = location.hash || '#overview';
+  activateTab(hash.replace('#', '') || 'overview');
+}
+
+// Initialize immediately
+document.addEventListener('DOMContentLoaded', function() {
+  initNav();
+  
+  // Trigger overview load to initialize building visualization
+  setTimeout(() => {
+    const overviewEl = document.getElementById('overview-mount');
+    if (overviewEl && overviewEl.children.length === 0) {
+      overviewEl.innerHTML = `
+        <div id="building-container" class="mb-8"></div>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+          <div class="glass-card rounded-2xl p-6 shadow-xl">
+            <div class="text-xs uppercase tracking-wider text-slate-400">Fleet Agents</div>
+            <div class="text-4xl font-serif font-bold text-accent mt-2">5</div>
+            <div class="text-xs text-slate-400/60 mt-2">Orchestrator + 4 Specialists</div>
+          </div>
+          <div class="glass-card rounded-2xl p-6 shadow-xl">
+            <div class="text-xs uppercase tracking-wider text-slate-400">Active Profiles</div>
+            <div class="text-4xl font-serif font-bold text-blue-400 mt-2">4</div>
+            <div class="text-xs text-slate-400/60 mt-2">Scout, Scribe, Reach, Dev</div>
+          </div>
+          <div class="glass-card rounded-2xl p-6 shadow-xl">
+            <div class="text-xs uppercase tracking-wider text-slate-400">Sessions</div>
+            <div class="text-4xl font-serif font-bold text-emerald-400 mt-2" id="total-sessions">—</div>
+            <div class="text-xs text-slate-400/60 mt-2">Across all agents</div>
+          </div>
+          <div class="glass-card rounded-2xl p-6 shadow-xl">
+            <div class="text-xs uppercase tracking-wider text-slate-400">Tasks</div>
+            <div class="text-4xl font-serif font-bold text-purple-400 mt-2" id="total-tasks">—</div>
+            <div class="text-xs text-slate-400/60 mt-2">Active missions</div>
+          </div>
+        </div>
+      `;
+      initBuilding3D('building-container', null);
+      
+      // Fetch summary
+      fetch('/api/summary')
+        .then(r => r.json())
+        .then(data => {
+          document.getElementById('total-sessions').textContent = data.session_count || 0;
+          document.getElementById('total-tasks').textContent = data.task_count || 0;
+        })
+        .catch(() => {});
+      
+      // Auto-refresh
+      setInterval(() => {
+        fetch('/api/summary')
+          .then(r => r.json())
+          .then(data => {
+            document.getElementById('total-sessions').textContent = data.session_count || 0;
+            document.getElementById('total-tasks').textContent = data.task_count || 0;
+          })
+          .catch(() => {});
+      }, 30000);
+    }
+  }, 100);
+});
+
+window.activateTab = activateTab;
+window.triggerAgentCommunication = triggerAgentCommunication;
+</script>
+
+<!-- Three.js OrbitControls (loaded as module for the building scene) -->
+<script type="module">
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+  
+  window.THREE = THREE;
+  window.THREE.OrbitControls = OrbitControls;
+  
+  // Re-initialize building if it was waiting
+  if (window.initBuilding3DPending) {
+    window.initBuilding3D('building-container', null);
+  }
 </script>
 
 <script src="/app.js" type="module"></script>
