@@ -14,7 +14,15 @@ const THEME_INIT_SCRIPT = `
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR">
+    // suppressHydrationWarning is scoped to THIS element only (does not
+    // propagate to children) and is the documented Next.js fix for a
+    // <html>/<body> class toggled by an inline pre-hydration script: the
+    // classList.add("dark") in THEME_INIT_SCRIPT runs before React attaches,
+    // so server and client HTML legitimately differ on this one attribute
+    // by design (theme must apply before first paint to avoid a flash of
+    // wrong theme) — this tells React that specific mismatch is expected
+    // instead of logging it as a real bug on every single page.
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <Script id="theme-init" strategy="beforeInteractive">
           {THEME_INIT_SCRIPT}

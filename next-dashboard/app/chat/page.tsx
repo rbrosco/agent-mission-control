@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-
-const API_BASE = "http://127.0.0.1:51763";
+import { mcFetchJSON } from "@/lib/mc-api";
 
 type AgentKey = "orchestrator" | "dev" | "scout" | "scribe" | "reach";
 
@@ -16,18 +15,6 @@ const AGENT_META: Record<AgentKey, { name: string; role: string; color: string }
 
 const CHAT_PROFILES: AgentKey[] = ["orchestrator", "dev", "scout", "scribe", "reach"];
 const ALLOWED_CHAT_PROFILES = new Set(["dev", "reach", "scout", "scribe"]);
-
-async function fetchJSON(url: string) {
-  const resp = await fetch(url);
-  const data = await resp.json().catch(() => ({}));
-  if (!resp.ok) {
-    const err = new Error(data.error || `HTTP ${resp.status}`);
-    // @ts-ignore
-    err.status = resp.status;
-    throw err;
-  }
-  return data;
-}
 
 export default function ChatPage() {
   const [selected, setSelected] = useState<AgentKey | null>(null);
@@ -43,11 +30,27 @@ export default function ChatPage() {
     setMessages([]);
     setError(null);
 
-    fetchJSON(`${API_BASE}/api/messages?limit=20`)
+    // Use the backend's own profile filter (server-side) instead of
+    // fetching the last N messages across ALL profiles and filtering
+    // client-side — the old approach could starve a less-active agent's
+    // history entirely if other profiles were more active recently.
+    mcFetchJSON(`/api/messages?limit=30&profile=${encodeURIComponent(selected)}`)
       .then((data) => {
         if (!cancelled) {
-          const filtered = data.filter((m: any) => m.profile === selected).slice(0, 20);
-          setMessages(filtered.reverse());
+          // Real chat history can contain internal turns with no user-
+          // facing text: tool-call requests (finish_reason "tool_calls"
+          // with empty content) and tool-result turns (role "tool", which
+          // can have non-empty content — raw JSON from a tool execution,
+          // not agent prose). These are genuine DB rows, not a fetch bug,
+          // but showing them as chat bubbles looks exactly like broken UI
+          // — only user/assistant turns with real visible text are shown.
+          const visible = data.filter(
+            (m: any) =>
+              (m.role === "user" || m.role === "assistant") &&
+              typeof m.content === "string" &&
+              m.content.trim().length > 0
+          );
+          setMessages(visible.slice(0, 20).reverse());
         }
       })
       .catch((e) => {
@@ -75,17 +78,15 @@ export default function ChatPage() {
     setError(null);
 
     try {
-      const resp = await fetch(`${API_BASE}/api/chat/send`, {
+      const data = await mcFetchJSON(`/api/chat/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ profile: selected, message: text }),
       });
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
       setMessages((prev) => [
         ...prev,
         { id: String(Date.now()), role: "user", content: text, timestamp: Date.now() / 1000 },
-        { id: String(Date.now() + 1), role: "assistant", content: data.reply || "(sem resposta)", timestamp: Date.now() / 1000 },
+        { id: String(Date.now() + 1), role: "assistant", content: data.response || data.reply || "(sem resposta)", timestamp: Date.now() / 1000 },
       ]);
     } catch (e: any) {
       setError(e.message);

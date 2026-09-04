@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { mcFetchJSON } from "@/lib/mc-api";
+import { useStaggerReveal } from "@/lib/use-stagger-reveal";
+import { Card } from "@/components/card";
+import { ErrorState } from "@/components/error-state";
 
 type Session = {
   id: string;
@@ -22,26 +26,18 @@ const AGENT_META: Record<string, { name: string; role: string; color: string }> 
 
 const REAL_PROFILES = ["dev", "scout", "scribe", "reach"];
 
-async function fetchJSON(url: string) {
-  const resp = await fetch(url);
-  const data = await resp.json().catch(() => ({}));
-  if (!resp.ok) {
-    const err = new Error(data.error || `HTTP ${resp.status}`);
-    // @ts-ignore
-    err.status = resp.status;
-    throw err;
-  }
-  return data;
-}
-
 export default function AgentsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const scope = useStaggerReveal(".stagger-item", [loading]);
 
   useEffect(() => {
     let cancelled = false;
-    fetchJSON("http://127.0.0.1:51763/api/sessions?limit=500")
+    setLoading(true);
+    setError(null);
+    mcFetchJSON("/api/sessions?limit=500")
       .then((data) => {
         if (!cancelled) setSessions(data);
       })
@@ -54,7 +50,7 @@ export default function AgentsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   if (loading) {
     return (
@@ -70,7 +66,7 @@ export default function AgentsPage() {
   }
 
   if (error) {
-    return <div className="text-red-600 text-sm">Erro: {error}</div>;
+    return <ErrorState message={error} onRetry={() => setReloadKey((k) => k + 1)} />;
   }
 
   const byProfile: Record<string, Session[]> = {};
@@ -82,7 +78,7 @@ export default function AgentsPage() {
   const maxSessions = Math.max(1, ...REAL_PROFILES.map((p) => (byProfile[p] || []).length));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" ref={scope}>
       <div className="hero-glow rounded-3xl p-8 md:p-10 text-cream dark:text-cream relative overflow-hidden">
         <h1 className="font-serif text-3xl md:text-5xl font-medium leading-tight">
           Five agents. <em className="italic text-accent">one console.</em>
@@ -104,7 +100,7 @@ export default function AgentsPage() {
           const loadPct = isOrch ? 100 : Math.round((count / maxSessions) * 100);
 
           return (
-            <div key={key} className="bg-card dark:bg-cardd rounded-2xl p-5 shadow-sm border border-black/5 dark:border-white/10">
+            <div key={key} className="bg-card dark:bg-cardd rounded-2xl p-5 shadow-sm border border-black/5 dark:border-white/10 stagger-item">
               <div className="flex items-center justify-between mb-3">
                 <span
                   className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white"
@@ -141,7 +137,7 @@ export default function AgentsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-card dark:bg-cardd rounded-2xl p-6 shadow-sm border border-black/5 dark:border-white/10">
+        <Card className="lg:col-span-2">
           <div className="text-xs font-semibold uppercase tracking-wider text-black/40 dark:text-white/40 mb-3">Task summary</div>
           <div className="space-y-2">
             {REAL_PROFILES.map((p) => {
@@ -162,9 +158,9 @@ export default function AgentsPage() {
               );
             })}
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-card dark:bg-cardd rounded-2xl p-6 shadow-sm border border-black/5 dark:border-white/10">
+        <Card>
           <div className="text-xs font-semibold uppercase tracking-wider text-black/40 dark:text-white/40 mb-3">Model routing</div>
           <div className="space-y-2">
             {REAL_PROFILES.map((p) => {
@@ -186,7 +182,7 @@ export default function AgentsPage() {
               );
             })}
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

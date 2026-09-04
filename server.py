@@ -804,7 +804,12 @@ class Handler(BaseHTTPRequestHandler):
     def _cors_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        # Authorization must be explicitly allowed here — the frontend sends
+        # HTTP Basic Auth on every request, which triggers a CORS preflight.
+        # Without "Authorization" in this list, browsers silently block the
+        # real request after the OPTIONS preflight succeeds, surfacing as a
+        # generic "Failed to fetch" in the client with no further detail.
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
     def do_OPTIONS(self) -> None:  # noqa: N802 (stdlib naming)
         self.send_response(204)

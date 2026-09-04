@@ -1,8 +1,10 @@
+import { mcFetchJSON } from "@/lib/mc-api";
+import { Card } from "@/components/card";
+
 async function getSchedule() {
-  const base = process.env.NEXT_PUBLIC_MC_URL || "http://127.0.0.1:51763";
   const [executions, jobs] = await Promise.all([
-    fetch(`${base}/api/cron/executions?limit=100`, { next: { revalidate: 5 } }).then((r) => (r.ok ? r.json() : [])),
-    fetch(`${base}/api/cron/jobs`, { next: { revalidate: 5 } }).then((r) => (r.ok ? r.json() : [])),
+    mcFetchJSON(`/api/cron/executions?limit=100`).catch(() => []),
+    mcFetchJSON(`/api/cron/jobs`).catch(() => []),
   ]);
   return { executions, jobs };
 }
@@ -33,23 +35,23 @@ export default async function SchedulePage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-card dark:bg-cardd rounded-2xl p-6 shadow-sm border border-black/5 dark:border-white/10">
+          <Card>
             <div className="text-xs uppercase tracking-wider text-black/40 dark:text-white/40">Executions</div>
             <div className="text-4xl font-serif font-medium mt-2">{executions.length}</div>
             <div className="text-xs text-black/40 dark:text-white/40 mt-2">Last 100 runs</div>
-          </div>
-          <div className="bg-card dark:bg-cardd rounded-2xl p-6 shadow-sm border border-black/5 dark:border-white/10">
+          </Card>
+          <Card>
             <div className="text-xs uppercase tracking-wider text-black/40 dark:text-white/40">Jobs</div>
             <div className="text-4xl font-serif font-medium mt-2">{jobs.length}</div>
             <div className="text-xs text-black/40 dark:text-white/40 mt-2">Distinct job ids</div>
-          </div>
-          <div className="bg-card dark:bg-cardd rounded-2xl p-6 shadow-sm border border-black/5 dark:border-white/10">
+          </Card>
+          <Card>
             <div className="text-xs uppercase tracking-wider text-black/40 dark:text-white/40">Profiles with cron</div>
             <div className="text-4xl font-serif font-medium mt-2">
               {new Set(executions.map((e: any) => e.profile)).size || "—"}
             </div>
             <div className="text-xs text-black/40 dark:text-white/40 mt-2">From executions</div>
-          </div>
+          </Card>
         </div>
 
         <div className="bg-card dark:bg-cardd rounded-2xl border border-black/5 dark:border-white/10 overflow-hidden">

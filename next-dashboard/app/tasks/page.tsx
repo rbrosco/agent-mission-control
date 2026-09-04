@@ -1,8 +1,7 @@
+import { mcFetchJSON } from "@/lib/mc-api";
+
 async function getTasks() {
-  const base = process.env.NEXT_PUBLIC_MC_URL || "http://127.0.0.1:51763";
-  const res = await fetch(`${base}/api/kanban?limit=100`, { next: { revalidate: 5 } });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  return mcFetchJSON(`/api/kanban?limit=100`);
 }
 
 function priorityBadge(priority?: number) {

@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-const API_BASE = "http://127.0.0.1:51763";
+import { mcFetchJSON } from "@/lib/mc-api";
+import { useStaggerReveal } from "@/lib/use-stagger-reveal";
+import { Sparkline } from "@/components/sparkline";
+import { Card } from "@/components/card";
+import { ErrorState } from "@/components/error-state";
 
 type Summary = {
   profiles: string[];
@@ -50,36 +54,51 @@ function fmtEpoch(sec?: number) {
   return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
-async function fetchJSON(url: string) {
-  const resp = await fetch(url);
-  const data = await resp.json().catch(() => ({}));
-  if (!resp.ok) {
-    const err = new Error(data.error || `HTTP ${resp.status}`);
-    // @ts-ignore
-    err.status = resp.status;
-    throw err;
+/**
+ * Buckets real message timestamps into N windows over the last `hoursSpan`
+ * hours. Used to feed the Fleet pulse sparkline with real message volume —
+ * no synthetic/interpolated data, a bucket with zero real messages is 0.
+ */
+function bucketizeActivity(messages: Message[], buckets: number, hoursSpan: number): number[] {
+  const now = Date.now() / 1000;
+  const bucketSeconds = (hoursSpan * 3600) / buckets;
+  const counts = new Array(buckets).fill(0);
+  for (const m of messages) {
+    const age = now - m.timestamp;
+    if (age < 0 || age > hoursSpan * 3600) continue;
+    const idx = buckets - 1 - Math.floor(age / bucketSeconds);
+    if (idx >= 0 && idx < buckets) counts[idx] += 1;
   }
-  return data;
+  return counts;
 }
 
 export default function OverviewPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [activityMessages, setActivityMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const scope = useStaggerReveal(".stagger-item", [loading]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
+      setLoading(true);
+      setError(null);
       try {
-        const [summaryData, messagesData] = await Promise.all([
-          fetchJSON(`${API_BASE}/api/summary`),
-          fetchJSON(`${API_BASE}/api/messages?limit=8`),
+        const [summaryData, messagesData, activityData] = await Promise.all([
+          mcFetchJSON(`/api/summary`),
+          mcFetchJSON(`/api/messages?limit=8`),
+          // wider window used only to bucket real message volume per hour
+          // for the "Fleet pulse" sparkline below — not shown as a list.
+          mcFetchJSON(`/api/messages?limit=500`),
         ]);
         if (!cancelled) {
           setSummary(summaryData);
           setMessages(messagesData);
+          setActivityMessages(activityData);
         }
       } catch (e: any) {
         if (!cancelled) setError(e.message);
@@ -92,7 +111,7 @@ export default function OverviewPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   if (loading) {
     return (
@@ -109,7 +128,7 @@ export default function OverviewPage() {
   }
 
   if (error) {
-    return <div className="text-red-600 text-sm">Erro ao carregar overview: {error}</div>;
+    return <ErrorState message={error} onRetry={() => setReloadKey((k) => k + 1)} />;
   }
 
   if (!summary) return null;
@@ -117,12 +136,14 @@ export default function OverviewPage() {
   const perProfile = summary.per_profile || {};
   const totalSessions = Object.values(perProfile).reduce((a, p) => a + (p.session_count || 0), 0) || 1;
   const activeMissions = (summary.task_by_status?.todo || 0) + (summary.task_by_status?.in_progress || 0);
+  const pulseBuckets = bucketizeActivity(activityMessages, 24, 24); // 24 hourly buckets, last 24h
+  const pulseTotal = pulseBuckets.reduce((a, b) => a + b, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" ref={scope}>
       {/* Hero + activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 hero-glow rounded-3xl p-8 md:p-10 text-cream dark:text-cream relative overflow-hidden">
+        <div className="lg:col-span-2 hero-glow rounded-3xl p-8 md:p-10 text-cream dark:text-cream relative overflow-hidden stagger-item">
           <h1 className="font-serif text-3xl md:text-5xl font-medium leading-tight">
             One orchestrator. <em className="italic text-accent">Four specialists.</em>
           </h1>
@@ -159,7 +180,7 @@ export default function OverviewPage() {
           </div>
         </div>
 
-        <div className="bg-card dark:bg-cardd rounded-2xl p-6 shadow-sm border border-black/5 dark:border-white/10">
+        <Card className="stagger-item">
           <div className="text-xs font-semibold uppercase tracking-wider text-black/40 dark:text-white/40 mb-3">Recent activity</div>
           <div className="divide-y divide-black/5">
             {messages.length === 0 && (
@@ -186,24 +207,24 @@ export default function OverviewPage() {
               );
             })}
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-card dark:bg-cardd rounded-2xl p-6 shadow-sm border border-black/5 dark:border-white/10">
+        <Card className="stagger-item">
           <div className="text-xs uppercase tracking-wider text-black/40 dark:text-white/40">Active Missions</div>
           <div className="text-4xl font-serif font-medium mt-2">{activeMissions}</div>
           <div className="text-xs text-black/40 dark:text-white/40 mt-2">To do + In progress · kanban.db</div>
-        </div>
+        </Card>
 
-        <div className="bg-card dark:bg-cardd rounded-2xl p-6 shadow-sm border border-black/5 dark:border-white/10">
+        <Card className="stagger-item">
           <div className="text-xs uppercase tracking-wider text-black/40 dark:text-white/40">Load distribution</div>
           <LoadRing total={totalSessions} perProfile={perProfile} />
           <div className="text-[10px] text-black/40 dark:text-white/40 text-center mt-1">sessions por agente</div>
-        </div>
+        </Card>
 
-        <div className="bg-card dark:bg-cardd rounded-2xl p-6 shadow-sm border border-black/5 dark:border-white/10">
+        <Card className="stagger-item">
           <div className="text-xs uppercase tracking-wider text-black/40 dark:text-white/40 mb-2">Sessions by agent</div>
           <div className="space-y-1">
             {REAL_PROFILES.map((p) => {
@@ -224,9 +245,9 @@ export default function OverviewPage() {
               );
             })}
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-card dark:bg-cardd rounded-2xl p-6 shadow-sm border border-black/5 dark:border-white/10">
+        <Card className="stagger-item">
           <div className="text-xs uppercase tracking-wider text-black/40 dark:text-white/40 mb-3">Fleet throughput</div>
           <div className="space-y-2.5">
             {REAL_PROFILES.map((p) => {
@@ -249,8 +270,25 @@ export default function OverviewPage() {
               );
             })}
           </div>
-        </div>
+        </Card>
       </div>
+
+      {/* Fleet pulse: real message volume, bucketed hourly over the last
+          24h — first genuine trend visualization on this dashboard, no
+          fabricated interpolation. */}
+      <Card className="stagger-item">
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-xs uppercase tracking-wider text-black/40 dark:text-white/40">Fleet pulse · últimas 24h</div>
+          <div className="text-xs font-mono text-black/50 dark:text-white/50">{pulseTotal} mensagens</div>
+        </div>
+        <div className="mt-3">
+          <Sparkline data={pulseBuckets} color="#E8622C" height={56} />
+        </div>
+        <div className="flex justify-between text-[10px] text-black/30 dark:text-white/30 mt-1">
+          <span>-24h</span>
+          <span>agora</span>
+        </div>
+      </Card>
     </div>
   );
 }

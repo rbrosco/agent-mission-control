@@ -1,6 +1,5 @@
 import { OfficeScene, type AgentActivity, type AgentKey } from "@/components/office-scene";
-
-const MC_BASE = process.env.NEXT_PUBLIC_MC_URL || "http://127.0.0.1:51763";
+import { mcFetchJSON } from "@/lib/mc-api";
 
 // Static layout: which agent maps to which "district", color, and building
 // position/height. Colors match --color-agent-* in globals.css. Data (session
@@ -22,15 +21,10 @@ interface SessionRow {
 }
 
 async function getOfficeData(): Promise<{ agents: AgentActivity[]; lightsOn: number; totalSessions: number }> {
-  const [summaryRes, sessionsRes] = await Promise.all([
-    fetch(`${MC_BASE}/api/summary`, { next: { revalidate: 15 } }),
-    fetch(`${MC_BASE}/api/sessions?limit=200`, { next: { revalidate: 15 } }),
+  const [summary, sessions]: [any, SessionRow[]] = await Promise.all([
+    mcFetchJSON(`/api/summary`),
+    mcFetchJSON(`/api/sessions?limit=200`),
   ]);
-  if (!summaryRes.ok) throw new Error(`HTTP ${summaryRes.status} on /api/summary`);
-  if (!sessionsRes.ok) throw new Error(`HTTP ${sessionsRes.status} on /api/sessions`);
-
-  const summary = await summaryRes.json();
-  const sessions: SessionRow[] = await sessionsRes.json();
 
   const nowSec = Date.now() / 1000;
 
